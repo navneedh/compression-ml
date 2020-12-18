@@ -7,3 +7,4 @@ tfc_metagraphs/
 *.png
 saved_models/
 exp_results/
+lam_*
