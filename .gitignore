@@ -3,3 +3,7 @@ data/
 outputs/
 out.tfci
 tfc_metagraphs/
+.ipynb_checkpoints/
+*.png
+saved_models/
+exp_results/
