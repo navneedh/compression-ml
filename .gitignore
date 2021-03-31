@@ -8,3 +8,6 @@ tfc_metagraphs/
 saved_models/
 exp_results/
 lam_*
+*.p
+*.npy
+tiny_lam_*
