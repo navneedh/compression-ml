@@ -140,12 +140,14 @@ class SynthesisTransform(tf.keras.layers.Layer):
 
 
 
-def compress(args):
+def compress_cifar(args):
   """Compresses an image."""
 
-  output_folder = "/media/expansion1/navneedhmaudgalya/Datasets/cifar/train_bls_033"
+  output_folder = "/media/expansion1/navneedhmaudgalya/Datasets/cifar/train_bls_1n"
+  # output_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/test_tiny_bls_001"
 
-  # os.mkdir(output_folder)
+  if not os.path.exists(output_folder):
+      os.mkdir(output_folder)
 
   bpp = []
   full_bpp = []
@@ -200,13 +202,92 @@ def compress(args):
         image_file_path = str(os.path.join("/media/expansion1/navneedhmaudgalya/Datasets/cifar/train/", image_file_name))
         # op = write_png("test_005/{}.png".format(i), x_hat)
         x_h, arrays, inf_bpp = sess.run([x_hat, tensors, eval_bpp], feed_dict={index: image_file_path})
-        plt.imsave("{}/{}.png".format(output_folder, i), x_h[0]/255.)
+        plt.imsave("{}/{}".format(output_folder, image_file_name), x_h[0]/255.)
         # Write a binary file with the shape information and the compressed string.
         packed = tfc.PackedTensors()
         packed.pack(tensors, arrays)
 
         bpp.append(inf_bpp)
         full_bpp.append(len(packed.string) * 8 / (32 * 32))
+        compressed_imgs.append(packed.string)
+
+        # sess.run(op, feed_dict={index: image_file_path})
+
+  np.save("{}/bpp.npy".format(output_folder), bpp)
+  np.save("{}/full_bpp.npy".format(output_folder), full_bpp)
+  pickle.dump(compressed_imgs, open("{}/compressed_imgs.p".format(output_folder), "wb"))
+
+
+def compress_tiny(args):
+  """Compresses an image."""
+
+  output_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/train_bls_012"
+
+  if not os.path.exists(output_folder):
+      os.mkdir(output_folder)
+
+  bpp = []
+  full_bpp = []
+  compressed_imgs = []
+
+  # Load input image and add batch dimension.
+  index = tf.placeholder(tf.string)
+  # image_file_name = "{}.png".format(index.eval())
+  # image_file_path = os.path.join("../data/cifar/test/", image_file_name)
+
+  x = read_png(index)
+  x = tf.expand_dims(x, 0)
+  x.set_shape([1, None, None, 3])
+  x_shape = tf.shape(x)
+
+  # Instantiate model.
+  analysis_transform = AnalysisTransform(args.num_filters)
+  entropy_bottleneck = tfc.EntropyBottleneck()
+  synthesis_transform = SynthesisTransform(args.num_filters)
+
+  # Transform and compress the image.
+  y = analysis_transform(x)
+  string = entropy_bottleneck.compress(y)
+
+  # Transform the quantized image back (if requested).
+  y_hat, likelihoods = entropy_bottleneck(y, training=False)
+  x_hat = synthesis_transform(y_hat)
+  x_hat_orig = x_hat[:, :x_shape[1], :x_shape[2], :]
+
+  num_pixels = tf.cast(tf.reduce_prod(tf.shape(x)[:-1]), dtype=tf.float32)
+
+  # Total number of bits divided by number of pixels.
+  eval_bpp = tf.reduce_sum(tf.log(likelihoods)) / (-np.log(2) * num_pixels)
+
+  # Bring both images back to 0..255 range.
+  x *= 255
+  x_hat_orig = tf.clip_by_value(x_hat_orig, 0, 1)
+  x_hat = tf.round(x_hat_orig * 255)
+
+  # mse = tf.reduce_mean(tf.squared_difference(x, x_hat))
+  # psnr = tf.squeeze(tf.image.psnr(x_hat, x, 255))
+  # msssim = tf.squeeze(tf.image.ssim_multiscale(x_hat, x, 255))
+
+  with tf.Session() as sess:
+    # Load the latest model checkpoint, get the compressed string and the tensor
+    # shapes.
+    latest = tf.train.latest_checkpoint(checkpoint_dir=args.checkpoint_dir)
+    tf.train.Saver().restore(sess, save_path=latest)
+    tensors = [string, tf.shape(x)[1:-1], tf.shape(y)[1:-1]]
+
+    data_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/train/"
+    data_files = os.listdir(data_folder)
+    for i, image_file_name in tqdm(enumerate(data_files)):
+        image_file_path = str(os.path.join(data_folder, image_file_name))
+        # op = write_png("test_005/{}.png".format(i), x_hat)
+        x_h, arrays, inf_bpp = sess.run([x_hat, tensors, eval_bpp], feed_dict={index: image_file_path})
+        plt.imsave(os.path.join(output_folder, image_file_name), x_h[0]/255.)
+        # Write a binary file with the shape information and the compressed string.
+        packed = tfc.PackedTensors()
+        packed.pack(tensors, arrays)
+
+        bpp.append(inf_bpp)
+        full_bpp.append(len(packed.string) * 8 / (64 * 64))
         compressed_imgs.append(packed.string)
 
         # sess.run(op, feed_dict={index: image_file_path})
@@ -229,7 +310,7 @@ def parse_args(argv):
       "--num_filters", type=int, default=128,
       help="Number of filters per layer.")
   parser.add_argument(
-      "--checkpoint_dir", default="lam_0.033",
+      "--checkpoint_dir", default="tiny_lam_0.012",
       help="Directory where to save/load model checkpoints.")
   subparsers = parser.add_subparsers(
       title="commands", dest="command",
@@ -256,7 +337,7 @@ def parse_args(argv):
       "--patchsize", type=int, default=32,
       help="Size of image patches for training.")
   train_cmd.add_argument(
-      "--lambda", type=float, default=0.01, dest="lmbda",
+      "--lambda", type=float, default=0.075, dest="lmbda",
       help="Lambda for rate-distortion tradeoff.")
   train_cmd.add_argument(
       "--last_step", type=int, default=1000000,
@@ -268,7 +349,12 @@ def parse_args(argv):
 
   # 'compress' subcommand.
   compress_cmd = subparsers.add_parser(
-      "compress",
+      "compress_cifar",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+      description="Reads a PNG file, compresses it, and writes a TFCI file.")
+
+  compress_cmd1 = subparsers.add_parser(
+      "compress_tiny",
       formatter_class=argparse.ArgumentDefaultsHelpFormatter,
       description="Reads a PNG file, compresses it, and writes a TFCI file.")
 
@@ -301,10 +387,12 @@ def main(args):
   # Invoke subcommand.
   if args.command == "train":
     train(args)
-  elif args.command == "compress":
+  elif args.command == "compress_cifar":
     # if not args.output_file:
     #   args.output_file = args.input_file + ".tfci"
-    compress(args)
+    compress_cifar(args)
+  elif args.command == "compress_tiny":
+    compress_tiny(args)
   elif args.command == "decompress":
     if not args.output_file:
       args.output_file = args.input_file + ".png"

@@ -27,8 +27,10 @@ def get_metrics(data_folder_1, data_folder_2, metric):
         file_path_1 = os.path.join(data_folder_1, file_name)
         file_path_2 = os.path.join(data_folder_2, file_name)
 
-        image1 = np.array(Image.open(file_path_1))/255.
-        image2 = (np.array(Image.open(file_path_2))/255.)[:,:,:3]
+
+        image1 = np.array(Image.open(file_path_1).convert('RGB'))/255.
+
+        image2 = (np.array(Image.open(file_path_2).convert('RGB'))/255.)[:,:,:3]
         if metric == "ssim":
             metric_vals.append(ssim(image1, image2, multichannel = True))
         elif metric == "psnr":
