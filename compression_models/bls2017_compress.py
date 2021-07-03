@@ -221,7 +221,7 @@ def compress_cifar(args):
 def compress_tiny(args):
   """Compresses an image."""
 
-  output_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/test_bls_05"
+  output_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/train_bls_001n"
 
   if not os.path.exists(output_folder):
       os.mkdir(output_folder)
@@ -275,7 +275,7 @@ def compress_tiny(args):
     tf.train.Saver().restore(sess, save_path=latest)
     tensors = [string, tf.shape(x)[1:-1], tf.shape(y)[1:-1]]
 
-    data_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/test/"
+    data_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/train/"
     data_files = os.listdir(data_folder)
     for i, image_file_name in tqdm(enumerate(data_files)):
         image_file_path = str(os.path.join(data_folder, image_file_name))
@@ -288,13 +288,13 @@ def compress_tiny(args):
 
         bpp.append(inf_bpp)
         full_bpp.append(len(packed.string) * 8 / (64 * 64))
-        compressed_imgs.append(packed.string)
+        # compressed_imgs.append(packed.string)
 
         # sess.run(op, feed_dict={index: image_file_path})
 
   np.save("{}/bpp.npy".format(output_folder), bpp)
   np.save("{}/full_bpp.npy".format(output_folder), full_bpp)
-  pickle.dump(compressed_imgs, open("{}/compressed_imgs.p".format(output_folder), "wb"))
+  # pickle.dump(compressed_imgs, open("{}/compressed_imgs.p".format(output_folder), "wb"))
 
 
 def parse_args(argv):
@@ -310,7 +310,7 @@ def parse_args(argv):
       "--num_filters", type=int, default=128,
       help="Number of filters per layer.")
   parser.add_argument(
-      "--checkpoint_dir", default="tiny_lam_0.05",
+      "--checkpoint_dir", default="tiny_lam_0.001n",
       help="Directory where to save/load model checkpoints.")
   subparsers = parser.add_subparsers(
       title="commands", dest="command",

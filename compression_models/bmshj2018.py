@@ -36,6 +36,10 @@ import numpy as np
 import tensorflow.compat.v1 as tf
 
 import tensorflow_compression as tfc
+import os
+from tqdm import tqdm
+
+import matplotlib.pyplot as plt
 
 
 SCALES_MIN = 0.11
@@ -236,6 +240,7 @@ def train(args):
   conditional_bottleneck = tfc.GaussianConditional(sigma, scale_table)
   y_tilde, y_likelihoods = conditional_bottleneck(y, training=True)
   x_tilde = synthesis_transform(y_tilde)
+  tf.print(x_tilde.shape)
 
   # Total number of bits divided by number of pixels.
   train_bpp = (tf.reduce_sum(tf.log(y_likelihoods)) +
@@ -280,8 +285,18 @@ def train(args):
 def compress(args):
   """Compresses an image."""
 
+  output_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/train_bmshj_001n"
+
+  if not os.path.exists(output_folder):
+      os.mkdir(output_folder)
+
+  bpp = []
+  full_bpp = []
+
+  index = tf.placeholder(tf.string)
+
   # Load input image and add batch dimension.
-  x = read_png(args.input_file)
+  x = read_png(index)
   x = tf.expand_dims(x, 0)
   x.set_shape([1, None, None, 3])
   x_shape = tf.shape(x)
@@ -333,13 +348,30 @@ def compress(args):
     tf.train.Saver().restore(sess, save_path=latest)
     tensors = [string, side_string,
                tf.shape(x)[1:-1], tf.shape(y)[1:-1], tf.shape(z)[1:-1]]
-    arrays = sess.run(tensors)
+
+    data_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/train/"
+    data_files = os.listdir(data_folder)
+    for i, image_file_name in tqdm(enumerate(data_files)):
+        image_file_path = str(os.path.join(data_folder, image_file_name))
+        # op = write_png("test_005/{}.png".format(i), x_hat)
+        x_h, arrays, inf_bpp = sess.run([x_hat, tensors, eval_bpp], feed_dict={index: image_file_path})
+        plt.imsave(os.path.join(output_folder, image_file_name), x_h[0]/255.)
+        # Write a binary file with the shape information and the compressed string.
+        packed = tfc.PackedTensors()
+        packed.pack(tensors, arrays)
+
+        bpp.append(inf_bpp)
+        full_bpp.append(len(packed.string) * 8 / (64 * 64))
+
+    # sess.run(op, feed_dict={index: image_file_path})
+
+    np.save("{}/bpp.npy".format(output_folder), bpp)
+    np.save("{}/full_bpp.npy".format(output_folder), full_bpp)
+
 
     # Write a binary file with the shape information and the compressed string.
-    packed = tfc.PackedTensors()
-    packed.pack(tensors, arrays)
-    with open(args.output_file, "wb") as f:
-      f.write(packed.string)
+    # with open(args.output_file, "wb") as f:
+    #   f.write(packed.string)
 
     # If requested, transform the quantized image back and measure performance.
     if args.verbose:
@@ -416,7 +448,7 @@ def parse_args(argv):
       "--num_filters", type=int, default=192,
       help="Number of filters per layer.")
   parser.add_argument(
-      "--checkpoint_dir", default="train",
+      "--checkpoint_dir", default="tiny_0.001n",
       help="Directory where to save/load model checkpoints.")
   subparsers = parser.add_subparsers(
       title="commands", dest="command",
@@ -433,17 +465,17 @@ def parse_args(argv):
       formatter_class=argparse.ArgumentDefaultsHelpFormatter,
       description="Trains (or continues to train) a new model.")
   train_cmd.add_argument(
-      "--train_glob", default="images/*.png",
+      "--train_glob", default="/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/train/*.png",
       help="Glob pattern identifying training data. This pattern must expand "
            "to a list of RGB images in PNG format.")
   train_cmd.add_argument(
       "--batchsize", type=int, default=8,
       help="Batch size for training.")
   train_cmd.add_argument(
-      "--patchsize", type=int, default=256,
+      "--patchsize", type=int, default=64,
       help="Size of image patches for training.")
   train_cmd.add_argument(
-      "--lambda", type=float, default=0.01, dest="lmbda",
+      "--lambda", type=float, default=0.001, dest="lmbda",
       help="Lambda for rate-distortion tradeoff.")
   train_cmd.add_argument(
       "--last_step", type=int, default=1000000,
@@ -467,14 +499,6 @@ def parse_args(argv):
                   "a PNG file.")
 
   # Arguments for both 'compress' and 'decompress'.
-  for cmd, ext in ((compress_cmd, ".tfci"), (decompress_cmd, ".png")):
-    cmd.add_argument(
-        "input_file",
-        help="Input filename.")
-    cmd.add_argument(
-        "output_file", nargs="?",
-        help="Output filename (optional). If not provided, appends '{}' to "
-             "the input filename.".format(ext))
 
   # Parse arguments.
   args = parser.parse_args(argv[1:])
@@ -489,8 +513,6 @@ def main(args):
   if args.command == "train":
     train(args)
   elif args.command == "compress":
-    if not args.output_file:
-      args.output_file = args.input_file + ".tfci"
     compress(args)
   elif args.command == "decompress":
     if not args.output_file:

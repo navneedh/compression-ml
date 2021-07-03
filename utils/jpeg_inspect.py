@@ -1,7 +1,7 @@
 from struct import unpack
 import numpy as np
 
-output_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/test_jpeg_1/"
+output_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/train_jpeg_80/"
 
 marker_mapping = {
     0xffd8: "Start of Image",
@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     bpp = []
 
-    for i in range(10000):
+    for i in range(100000):
         with open(output_folder + "{}.png".format(i), "rb") as image:
             f = image.read()
             index = f.find(b'\xff\xda')
@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
             bpp.append((8 * (len((bytearray(f))) - index))/(64 * 64))
 
-    print(sum(bpp)/10000)
+    print(sum(bpp)/100000)
     np.save(output_folder + "bpp.npy", bpp)
 
 # if __name__ == "__main__":

@@ -343,7 +343,7 @@ def parse_args(argv):
       "--num_filters", type=int, default=128,
       help="Number of filters per layer.")
   parser.add_argument(
-      "--checkpoint_dir", default="tiny_lam_0.033",
+      "--checkpoint_dir", default="tiny_lam_0.001n64",
       help="Directory where to save/load model checkpoints.")
   subparsers = parser.add_subparsers(
       title="commands", dest="command",
@@ -367,10 +367,10 @@ def parse_args(argv):
       "--batchsize", type=int, default=8,
       help="Batch size for training.")
   train_cmd.add_argument(
-      "--patchsize", type=int, default=32,
+      "--patchsize", type=int, default=64,
       help="Size of image patches for training.")
   train_cmd.add_argument(
-      "--lambda", type=float, default=0.033, dest="lmbda",
+      "--lambda", type=float, default=0.001, dest="lmbda",
       help="Lambda for rate-distortion tradeoff.")
   train_cmd.add_argument(
       "--last_step", type=int, default=800000,

@@ -12,18 +12,18 @@ parser.add_argument('--out_folder', default="test", help="output folder")
 parser.add_argument('--type', default='jpeg', help='jpeg, jpeg2, gn, sp, glp')
 args = parser.parse_args()
 
-data_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/" + args.data_folder
-output_folder = "/media/expansion1/navneedhmaudgalya/Datasets/tiny_imagenet/" + args.out_folder
+data_folder = "/media/expansion1/navneedhmaudgalya/Datasets/cifar/" + args.data_folder
+output_folder = "/media/expansion1/navneedhmaudgalya/Datasets/cifar/" + args.out_folder
 
 if not os.path.exists(output_folder):
 	os.mkdir(output_folder)
 
-num_data = 50000 if args.data_folder == "train" else 10000
+num_data = 100000 if args.data_folder == "train" else 10000
 
 
 if args.type == "jpeg":
 	for i in tqdm(range(num_data)):
-		file_name = "val_" + str(i) + ".png"
+		file_name = str(i) + ".png"
 		output_file_path = os.path.join(output_folder, str(i) + ".png")
 		input_file_path = os.path.join(data_folder, file_name)
 
